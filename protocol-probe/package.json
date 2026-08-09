@@ -1,0 +1,15 @@
+{
+  "name": "app-agent-protocol-probe",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Zero-dependency compatibility probe for a chat-completions model API.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "probe": "node src/run.mjs",
+    "check": "node --check src/run.mjs && node --check src/client.mjs && node --check src/probes.mjs"
+  }
+}

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#ffffff">
+    <title>DeepSeek Codex</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="任务导航">
+        <div class="sidebar-titlebar">
+          <div class="app-symbol" aria-hidden="true"><span></span><span></span></div>
+          <strong>DeepSeek Codex</strong>
+          <button class="icon-button mobile-only" id="close-sidebar" type="button" title="关闭侧栏" aria-label="关闭侧栏">×</button>
+        </div>
+
+        <button class="new-task-button" id="new-task" type="button">
+          <span class="new-task-icon">＋</span>
+          <span>新任务</span>
+          <kbd>Ctrl K</kbd>
+        </button>
+
+        <nav class="primary-nav" aria-label="主导航">
+          <button class="nav-item active" type="button"><span class="nav-icon">⌁</span><span>任务</span></button>
+          <button class="nav-item" id="choose-workspace" type="button"><span class="nav-icon">⌂</span><span>工作区</span></button>
+        </nav>
+
+        <div class="sidebar-divider"></div>
+        <div class="task-section">
+          <div class="task-section-header">
+            <span>最近</span>
+            <button class="quiet-button" id="clear-sessions" type="button" title="清空任务" aria-label="清空任务">⌫</button>
+          </div>
+          <div class="session-list" id="session-list"></div>
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="account-row">
+            <span class="account-avatar">DS</span>
+            <div class="account-copy"><strong>本地工作区</strong><small id="connection-model">目标模型</small></div>
+            <button class="icon-button" id="refresh-config" type="button" title="刷新连接" aria-label="刷新连接">↻</button>
+          </div>
+          <div class="connection-row"><span class="connection-dot" id="connection-dot"></span><span id="connection-label">检查连接中</span></div>
+        </div>
+      </aside>
+
+      <main class="main-panel">
+        <header class="thread-header">
+          <div class="thread-header-left">
+            <button class="icon-button mobile-only" id="open-sidebar" type="button" title="打开侧栏" aria-label="打开侧栏">☰</button>
+            <div class="thread-heading">
+              <strong id="thread-title">新任务</strong>
+              <div class="thread-context">
+                <span id="topbar-workspace">app-agent</span>
+                <span class="context-separator">·</span>
+                <span>本地</span>
+              </div>
+            </div>
+          </div>
+          <div class="thread-actions">
+            <span class="branch-chip"><span class="branch-icon">⑂</span> main</span>
+            <div class="model-select-wrap"><span class="model-dot"></span><select id="model" aria-label="模型"><option value="">自动模型</option></select></div>
+            <button class="header-button" id="toggle-inspector" type="button" title="切换运行详情"><span>⌘</span><span class="header-button-label">运行详情</span></button>
+          </div>
+        </header>
+
+        <div class="run-strip hidden" id="run-strip">
+          <span class="spinner"></span>
+          <span id="run-status">代理正在工作</span>
+          <button class="stop-button" id="stop-run" type="button"><span>■</span> 停止</button>
+        </div>
+
+        <section class="conversation" id="conversation" aria-live="polite">
+          <div class="empty-state" id="empty-state">
+            <div class="empty-symbol"><span></span><span></span></div>
+            <h1>开始一个新任务</h1>
+            <p>在本地工作区中阅读代码、进行修改并运行命令。</p>
+            <div class="starter-list">
+              <button data-starter="检查这个项目的结构并告诉我如何运行测试"><span>了解代码库</span><small>项目结构和运行方式</small><b>→</b></button>
+              <button data-starter="运行项目测试，修复失败项并重新验证"><span>修复测试</span><small>运行、定位并验证</small><b>→</b></button>
+              <button data-starter="审查当前工作区的修改，按优先级列出问题"><span>审查修改</span><small>检查差异和回归</small><b>→</b></button>
+            </div>
+          </div>
+          <div class="message-list" id="message-list"></div>
+        </section>
+
+        <section class="run-drawer" id="inspector" aria-label="运行详情">
+          <div class="drawer-header">
+            <div class="drawer-tabs"><button class="drawer-tab active" type="button">运行详情</button><button class="drawer-tab" type="button">终端</button></div>
+            <div class="drawer-header-actions"><span class="drawer-status"><span class="large-status-dot" id="run-dot"></span><strong id="inspector-status">空闲</strong><small id="inspector-status-meta">等待下一个任务</small></span><button class="icon-button" id="close-inspector" type="button" title="关闭运行详情" aria-label="关闭运行详情">×</button></div>
+          </div>
+          <div class="drawer-body">
+            <div class="drawer-summary">
+              <div><span>工作区</span><strong class="mono" id="inspector-workspace">E:\app-agent</strong><small id="inspector-session">未开始会话</small></div>
+              <div><span>权限</span><strong><i class="permission-badge ask" id="inspector-permission-badge">ASK</i> <em id="inspector-permission">写入和命令需要确认</em></strong></div>
+              <div class="drawer-stats"><span><b id="stat-turns">0</b> 轮次</span><span><b id="stat-tools">0</b> 工具</span><span><b id="stat-files">0</b> 文件</span></div>
+            </div>
+            <div class="activity-list" id="activity-list"><div class="activity-empty">暂无运行活动</div></div>
+          </div>
+        </section>
+
+        <section class="composer-wrap">
+          <form class="composer" id="composer">
+            <textarea id="task-input" rows="1" placeholder="描述任务，使用 @ 添加文件..." aria-label="任务输入"></textarea>
+            <div class="composer-toolbar">
+              <div class="composer-toolbar-left">
+                <button class="composer-icon-button" type="button" title="添加上下文" aria-label="添加上下文">＋</button>
+                <label class="workspace-control"><span>⌂</span><input id="workspace" type="text" spellcheck="false" value="E:\app-agent" aria-label="工作区路径"></label>
+              </div>
+              <div class="composer-toolbar-right">
+                <button class="mode-chip" id="permission-mode" type="button" title="切换权限模式"><span class="mode-dot"></span><span id="permission-label">询问</span><span>⌄</span></button>
+                <button class="send-button" id="send-button" type="submit" title="发送任务" aria-label="发送任务">↑</button>
+              </div>
+            </div>
+          </form>
+          <div class="composer-note">Enter 发送 · Shift Enter 换行</div>
+        </section>
+      </main>
+    </div>
+
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+    <div class="permission-modal hidden" id="permission-modal" role="dialog" aria-modal="true" aria-labelledby="permission-title">
+      <div class="modal-card">
+        <div class="modal-kicker">需要确认</div>
+        <h2 id="permission-title">允许执行这个工具？</h2>
+        <p id="permission-copy">代理请求访问当前工作区。</p>
+        <pre id="permission-detail"></pre>
+        <div class="modal-actions"><button class="modal-button secondary" id="deny-permission" type="button">拒绝</button><button class="modal-button primary" id="allow-permission" type="button">允许一次</button></div>
+      </div>
+    </div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

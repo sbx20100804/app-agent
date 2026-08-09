@@ -1,0 +1,9 @@
+﻿.env
+data/
+screen*.png
+step1-verify.png
+*-check.png
+*-launch.png
+light-theme.png
+smoke-run.json
+.backup-*/

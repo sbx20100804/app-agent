@@ -1,0 +1,6 @@
+{
+  "baseUrl": "TARGET_API_URL",
+  "chatModel": "CHAT_MODEL",
+  "reasoningModel": "REASONING_MODEL",
+  "timeoutMs": 120000
+}

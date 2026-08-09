@@ -1,0 +1,4 @@
+.env
+config.local.json
+reports/*.json
+reports/compatibility-report-*.md

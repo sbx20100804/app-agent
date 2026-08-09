@@ -1,0 +1,14 @@
+{
+  "name": "app-agent-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local tool runtime and model-driven agent loop.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/agent.mjs && node --check src/tools.mjs && node --check src/workspace.mjs"
+  }
+}

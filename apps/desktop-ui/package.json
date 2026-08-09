@@ -1,0 +1,16 @@
+{
+  "name": "app-agent-desktop-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local desktop-style UI for the agent runtime.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "npm run check:server && npm run check:client",
+    "check:server": "node --check server.mjs && node --check src/server.mjs && node --check src/routes/config.mjs && node --check src/routes/runs.mjs && node --check src/routes/static.mjs && node --check src/runtime/run-manager.mjs && node --check src/runtime/events.mjs && node --check src/runtime/run-status.mjs && node --check src/utils/auth.mjs && node --check src/utils/json.mjs && node --check src/utils/paths.mjs && node --check src/utils/env.mjs && node --check src/model-adapters/base.mjs && node --check src/model-adapters/deepseek.mjs && node --check src/model-adapters/factory.mjs && node --check src/storage/event-store.mjs && node --check src/routes/workspace.mjs && node --check src/routes/terminal.mjs && node --check src/utils/context.mjs && node --check src/routes/worktrees.mjs && node --check src/routes/skills.mjs && node --check src/routes/integrations.mjs && node --check src/routes/settings.mjs",
+    "check:client": "node --check public/app.js"
+  }
+}
