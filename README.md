@@ -1,10 +1,11 @@
 # App Agent
 
-一个面向本地代码工作区的 DeepSeek 编程 Agent，提供接近 Codex 的任务界面、工具调用、权限审批、Git 集成和可扩展能力。
+一个专门为 DeepSeek 优化的本地编程智能体，提供接近 Codex 的任务界面、工具调用、权限审批、Git 集成和可扩展能力。
 
 ## 主要功能
 
 - DeepSeek Chat 与 Reasoner 模型适配
+- 面向 DeepSeek 的身份提示、模型路由和上下文压缩
 - 流式回复、推理内容和工具调用日志
 - 文件读取、搜索、修改和受限命令执行
 - `read-only`、`ask`、`auto` 三种权限模式

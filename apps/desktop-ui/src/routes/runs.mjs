@@ -69,6 +69,17 @@ export function listRuns(_request, response, { eventStore, sendJson }) {
   return sendJson(response, 200, { runs: eventStore.listRuns(50) });
 }
 
+export function deleteRun(request, response, { eventStore, sendJson, url }) {
+  const runId = url.pathname.split("/").pop();
+  eventStore.deleteRun(runId);
+  return sendJson(response, 200, { ok: true, runId });
+}
+
+export function clearRuns(_request, response, { eventStore, sendJson }) {
+  eventStore.clearRuns();
+  return sendJson(response, 200, { ok: true });
+}
+
 export function readRun(request, response, { eventStore, sendJson, url }) {
   const runId = url.pathname.split("/").pop();
   return sendJson(response, 200, eventStore.readRun(runId));

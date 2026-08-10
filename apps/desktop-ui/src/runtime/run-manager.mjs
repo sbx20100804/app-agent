@@ -61,7 +61,8 @@ export class RunManager {
       });
       const modelAdapter = createModelAdapter();
       const client = modelAdapter.createClient();
-      const selectedModel = modelAdapter.chooseModel?.({ requestedModel: options.model, task: options.task }) ?? options.model;
+      const requestedModel = options.model === "auto" ? "" : options.model;
+      const selectedModel = modelAdapter.chooseModel?.({ requestedModel, task: options.task }) ?? options.model;
       this.sendEvent(run, "model_selected", {
         provider: modelAdapter.config.provider,
         model: selectedModel,
@@ -74,7 +75,10 @@ export class RunManager {
         maxTurns: 20,
         onEvent: (event) => this.sendAgentEvent(run, event),
       });
-      const result = await agent.run(options.task, { signal: run.controller.signal });
+      const result = await agent.run(options.task, {
+        signal: run.controller.signal,
+        systemPrompt: modelAdapter.getSystemPrompt?.(selectedModel),
+      });
       this.recordRunMetadata(run.id, { status: result.status ?? "completed", turns: result.turns });
       this.sendEvent(run, "run_complete", {
         status: result.status,

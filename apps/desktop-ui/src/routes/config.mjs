@@ -9,6 +9,7 @@ export function getConfig() {
     configured,
     provider: adapter.config.provider,
     model: chatModel,
+    defaultSelection: "auto",
     reasonerModel,
     modelCapabilities: adapter.getCapabilities(chatModel),
     reasonerCapabilities: reasonerModel ? adapter.getCapabilities(reasonerModel) : null,

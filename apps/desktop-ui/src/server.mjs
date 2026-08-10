@@ -5,7 +5,7 @@ import { sendJson, readJsonBody } from "./utils/json.mjs";
 import { requireAuthorized } from "./utils/auth.mjs";
 import { handleConfig } from "./routes/config.mjs";
 import { serveStatic } from "./routes/static.mjs";
-import { startRun, approveRun, stopRun, listRuns, readRun, listActiveRuns } from "./routes/runs.mjs";
+import { startRun, approveRun, stopRun, listRuns, readRun, listActiveRuns, deleteRun, clearRuns } from "./routes/runs.mjs";
 import { listWorkspaceTree, readWorkspaceFile, gitStatus, gitDiff } from "./routes/workspace.mjs";
 import { createWorktree, listWorktrees, removeWorktree } from "./routes/worktrees.mjs";
 import { listSkills } from "./routes/skills.mjs";
@@ -79,6 +79,12 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === "GET" && url.pathname === "/api/runs") {
       return listRuns(request, response, deps);
+    }
+    if (request.method === "DELETE" && url.pathname === "/api/runs") {
+      return clearRuns(request, response, deps);
+    }
+    if (request.method === "DELETE" && url.pathname.startsWith("/api/runs/")) {
+      return deleteRun(request, response, { ...deps, url });
     }
     if (request.method === "GET" && url.pathname.startsWith("/api/runs/")) {
       return readRun(request, response, { ...deps, url });

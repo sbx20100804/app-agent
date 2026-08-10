@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 export class EventStore {
@@ -54,6 +54,32 @@ export class EventStore {
     const meta = this.listRuns(500).find((item) => item.runId === runId) ?? null;
     const events = this.readEvents(runId);
     return { meta, events };
+  }
+
+  deleteRun(runId) {
+    const runs = this.listRuns(500).filter((item) => item.runId !== runId);
+    writeFileSync(this.indexPath, `${JSON.stringify(runs, null, 2)}\n`, "utf8");
+    try {
+      const filePath = this.runEventsPath(runId);
+      if (existsSync(filePath)) {
+        unlinkSync(filePath);
+      }
+    } catch {
+      // The index is already removed; stale event files are harmless.
+    }
+  }
+
+  clearRuns() {
+    const runs = this.listRuns(500);
+    writeFileSync(this.indexPath, "[]\n", "utf8");
+    for (const run of runs) {
+      try {
+        const filePath = this.runEventsPath(run.runId);
+        if (existsSync(filePath)) unlinkSync(filePath);
+      } catch {
+        // Continue clearing the remaining index entries.
+      }
+    }
   }
 
   readEvents(runId) {

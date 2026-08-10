@@ -1,4 +1,4 @@
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readFile, readdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { validateWorkspacePath } from "../utils/paths.mjs";
@@ -19,10 +19,20 @@ export async function readWorkspaceFile(request, response, { sendJson, url }) {
   if (filePath.toLowerCase() !== workspace.toLowerCase() && !filePath.toLowerCase().startsWith(workspacePrefix)) {
     return sendJson(response, 403, { error: "\u6587\u4ef6\u8def\u5f84\u8d85\u51fa\u5de5\u4f5c\u533a" });
   }
-  const info = await stat(filePath);
+  let realFilePath;
+  try {
+    realFilePath = await realpath(filePath);
+  } catch {
+    return sendJson(response, 404, { error: "\u6587\u4ef6\u4e0d\u5b58\u5728" });
+  }
+  const realWorkspacePrefix = `${workspace}${path.sep}`.toLowerCase();
+  if (realFilePath.toLowerCase() !== workspace.toLowerCase() && !realFilePath.toLowerCase().startsWith(realWorkspacePrefix)) {
+    return sendJson(response, 403, { error: "\u6587\u4ef6\u8def\u5f84\u8d85\u51fa\u5de5\u4f5c\u533a" });
+  }
+  const info = await stat(realFilePath);
   if (!info.isFile()) return sendJson(response, 400, { error: "\u76ee\u6807\u4e0d\u662f\u6587\u4ef6" });
   if (info.size > 1_000_000) return sendJson(response, 413, { error: "\u6587\u4ef6\u8fc7\u5927，\u6682\u4e0d\u652f\u6301\u76f4\u63a5\u9884\u89c8" });
-  const content = await readFile(filePath, "utf8");
+  const content = await readFile(realFilePath, "utf8");
   return sendJson(response, 200, { path: relativePath, size: info.size, content });
 }
 

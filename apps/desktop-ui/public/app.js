@@ -1,4 +1,4 @@
-const state = {
+﻿const state = {
   running: false,
   runId: null,
   reader: null,
@@ -50,14 +50,19 @@ const elements = {
   permissionTitle: document.querySelector("#permission-title"),
   permissionCopy: document.querySelector("#permission-copy"),
   permissionDetail: document.querySelector("#permission-detail"),
+  projectName: document.querySelector("#project-name"),
 };
 
 bindEvents();
 renderSessions();
+refreshSessionHistory();
 refreshConfig();
 resizeComposer();
 initWorkspacePanelV2();
 initSettingsUi();
+initOnboardingUi();
+setTimeout(normalizeModelSelector, 500);
+if (elements.projectName) elements.projectName.textContent = basename(elements.workspace.value) || "未选择项目";
 
 function bindEvents() {
   elements.composer.addEventListener("submit", (event) => {
@@ -79,7 +84,8 @@ function bindEvents() {
     });
   });
   document.querySelector("#new-task").addEventListener("click", resetConversation);
-  document.querySelector("#clear-sessions").addEventListener("click", () => {
+  document.querySelector("#clear-sessions").addEventListener("click", async () => {
+    await fetch("/api/runs", { method: "DELETE" }).catch(() => {});
     state.sessions = [];
     persistSessions();
     renderSessions();
@@ -89,8 +95,12 @@ function bindEvents() {
   elements.workspace.addEventListener("input", () => {
     elements.topbarWorkspace.textContent = basename(elements.workspace.value) || "工作区";
     elements.inspectorWorkspace.textContent = elements.workspace.value || "未选择";
+    if (elements.projectName) elements.projectName.textContent = basename(elements.workspace.value) || "未选择项目";
   });
   elements.permissionMode.addEventListener("click", cyclePermissionMode);
+  elements.model.addEventListener("change", () => {
+    elements.model.dataset.userSelected = "true";
+  });
   document.querySelector("#toggle-inspector").addEventListener("click", toggleInspector);
   document.querySelector("#close-inspector").addEventListener("click", closeInspector);
   document.querySelector("#choose-workspace").addEventListener("click", () => {
@@ -116,7 +126,6 @@ function bindEvents() {
     }
   });
 }
-
 async function refreshConfig() {
   try {
     const response = await fetch("/api/config");
@@ -124,7 +133,7 @@ async function refreshConfig() {
     elements.connectionDot.className = `connection-dot ${config.configured ? "ready" : "error"}`;
     elements.modelDot.className = `model-dot ${config.configured ? "ready" : "error"}`;
     elements.connectionLabel.textContent = config.configured ? "已连接" : "未配置";
-    elements.connectionModel.textContent = config.model || "目标模型";
+    elements.connectionModel.textContent = config.model || "鐩爣妯″瀷";
     if (config.model && config.model !== "未配置") {
       const existing = [...elements.model.options].some((option) => option.value === config.model);
       if (!existing) elements.model.add(new Option(config.model, config.model));
@@ -180,12 +189,12 @@ async function startRun() {
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: response.statusText }));
-      throw new Error(error.error || "启动运行失败");
+      throw new Error(error.error || "鍚姩杩愯澶辫触");
     }
     await consumeEvents(response.body);
   } catch (error) {
-    appendMessage("assistant", `运行失败：${error.message}`);
-    setInspectorStatus("失败", error.message, "error");
+    appendMessage("assistant", `杩愯澶辫触锛?{error.message}`);
+    setInspectorStatus("澶辫触", error.message, "error");
   } finally {
     closePermissionModal();
     setRunningUi(false);
@@ -232,6 +241,7 @@ function processEvent(message) {
   const { event, data } = message;
   if (event === "run_open") {
     state.runId = data.runId;
+    attachSessionRun(data.runId);
     elements.inspectorSession.textContent = data.runId.slice(0, 8);
     addActivity("运行已连接", data.model);
   } else if (event === "model_start") {
@@ -257,7 +267,7 @@ function processEvent(message) {
     updateStats();
     appendToolLog(data.name, data.input, null, null);
     elements.runStatus.textContent = `正在执行 · ${data.name}`;
-    addActivity(`执行 ${data.name}`, formatShort(data.input));
+    addActivity(`鎵ц ${data.name}`, formatShort(data.input));
   } else if (event === "tool_end") {
     updateLastTool(data.name, data.ok, data.result);
     if (data.result?.result?.changed) state.files += data.result.result.changed.length;
@@ -265,6 +275,7 @@ function processEvent(message) {
   } else if (event === "permission_request") {
     showPermissionModal(data);
   } else if (event === "run_complete") {
+    updateSessionStatus("completed");
     if (!state.assistantContent && data.content) {
       state.assistantContent = data.content;
       ensureAssistantMessage();
@@ -273,8 +284,9 @@ function processEvent(message) {
     setInspectorStatus("完成", `${data.turns} 轮 · ${state.tools} 个工具`, "ready");
     addActivity("任务完成", `${data.turns} 轮工具调用`);
   } else if (event === "run_error") {
+    updateSessionStatus("failed");
     appendMessage("assistant", `运行失败：${data.message}`);
-    setInspectorStatus("失败", data.message, "error");
+    setInspectorStatus("澶辫触", data.message, "error");
   } else if (event === "run_close") {
     state.runId = null;
   }
@@ -320,7 +332,7 @@ function appendToolLog(name, input, ok, result) {
   const detail = document.createElement("details");
   detail.className = "tool-log";
   detail.dataset.tool = name;
-  detail.innerHTML = `<summary><span>${escapeHtml(name)}</span><span class="tool-state">运行中</span></summary><pre class="tool-input">${escapeHtml(formatJson(input))}</pre><pre class="tool-output">${result ? escapeHtml(formatJson(result)) : ""}</pre>`;
+  detail.innerHTML = `<summary><span>${escapeHtml(name)}</span><span class="tool-state">杩愯涓?/span></summary><pre class="tool-input">${escapeHtml(formatJson(input))}</pre><pre class="tool-output">${result ? escapeHtml(formatJson(result)) : ""}</pre>`;
   elements.messageList.appendChild(detail);
   scrollConversation();
 }
@@ -330,7 +342,7 @@ function updateLastTool(name, ok, result) {
   const detail = logs.at(-1);
   if (!detail) return;
   const stateElement = detail.querySelector(".tool-state");
-  stateElement.textContent = ok ? "完成" : "失败";
+  stateElement.textContent = ok ? "瀹屾垚" : "澶辫触";
   stateElement.className = `tool-state ${ok ? "ok" : "error"}`;
   detail.querySelector(".tool-output").textContent = formatJson(result);
 }
@@ -340,7 +352,7 @@ function setRunningUi(running) {
   elements.runStrip.classList.toggle("hidden", !running);
   elements.sendButton.disabled = running;
   elements.taskInput.disabled = running;
-  if (!running) elements.runStatus.textContent = "代理正在工作";
+  if (!running) elements.runStatus.textContent = "浠ｇ悊姝ｅ湪宸ヤ綔";
 }
 
 async function stopRun() {
@@ -351,7 +363,7 @@ async function stopRun() {
 
 function showPermissionModal(data) {
   state.pendingApproval = data;
-  elements.permissionTitle.textContent = `允许执行 ${data.toolName}？`;
+  elements.permissionTitle.textContent = `允许执行 ${data.toolName}`;
   elements.permissionCopy.textContent = "这个工具请求会在当前工作区内执行。";
   elements.permissionDetail.textContent = formatJson(data.input);
   elements.permissionModal.classList.remove("hidden");
@@ -376,7 +388,7 @@ function closePermissionModal() {
 function cyclePermissionMode() {
   const modes = ["ask", "auto", "read-only"];
   state.permissionMode = modes[(modes.indexOf(state.permissionMode) + 1) % modes.length];
-  const labels = { ask: "询问模式", auto: "自动执行", "read-only": "只读模式" };
+  const labels = { ask: "询问", auto: "自动执行", "read-only": "只读" };
   elements.permissionLabel.textContent = labels[state.permissionMode];
   elements.permissionMode.querySelector(".mode-dot").className = `mode-dot ${state.permissionMode}`;
   const badge = elements.inspectorPermissionBadge;
@@ -426,27 +438,128 @@ function addActivity(title, detail) {
 function renderSessions() {
   elements.sessionList.innerHTML = "";
   if (!state.sessions.length) {
-    elements.sessionList.innerHTML = '<div class="session-empty">还没有最近会话</div>';
+    elements.sessionList.innerHTML = '<div class="session-empty">杩樻病鏈変换鍔?/div>';
     return;
   }
   for (const session of state.sessions) {
     const button = document.createElement("button");
-    button.className = "session-item";
+    button.className = `session-item${session.runId === state.runId ? " active" : ""}`;
     button.type = "button";
-    button.innerHTML = `<span class="session-title">${escapeHtml(session.title)}</span><span class="session-time">${escapeHtml(session.time)}</span>`;
-    button.addEventListener("click", () => {
-      elements.taskInput.value = session.title;
-      resizeComposer();
-      elements.taskInput.focus();
-    });
+    button.innerHTML = `<span class="session-title">${escapeHtml(session.title)}</span>`;
+    button.addEventListener("click", () => loadSession(session));
     elements.sessionList.appendChild(button);
   }
 }
 
 function addSession(title) {
-  state.sessions = [{ title, time: "刚刚" }, ...state.sessions.filter((item) => item.title !== title)].slice(0, 8);
+  state.sessions = [{ title, time: "刚刚", status: "queued" }, ...state.sessions.filter((item) => item.title !== title)].slice(0, 12);
   persistSessions();
   renderSessions();
+}
+
+function attachSessionRun(runId) {
+  const title = elements.threadTitle.textContent;
+  const session = state.sessions.find((item) => item.title === title) || state.sessions[0];
+  if (!session) return;
+  session.runId = runId;
+  session.time = "刚刚";
+  session.status = "running";
+  persistSessions();
+  renderSessions();
+}
+
+function updateSessionStatus(status) {
+  const session = state.sessions.find((item) => item.runId === state.runId);
+  if (!session) return;
+  session.status = status;
+  session.time = "刚刚";
+  persistSessions();
+  renderSessions();
+}
+
+async function refreshSessionHistory() {
+  try {
+    const data = await fetchJson("/api/runs");
+    const remote = (data.runs || []).map((run) => ({
+      title: run.task || run.runId,
+      time: formatSessionTime(run.updatedAt || run.createdAt),
+      runId: run.runId,
+      status: run.status || "idle",
+    }));
+    const merged = [...remote, ...state.sessions];
+    const seen = new Set();
+    state.sessions = merged.filter((item) => {
+      const key = item.runId || item.title;
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 12);
+    persistSessions();
+    renderSessions();
+  } catch {
+    // Keep the local list usable when the server is unavailable.
+  }
+}
+
+async function loadSession(session) {
+  if (state.running) {
+    showToast("\u5f53\u524d\u4efb\u52a1\u6b63\u5728\u8fd0\u884c锛孿u8bf7\u5148\u505c\u6b62\u540e\u518d\u5207\u6362\u4efb\u52a1");
+    return;
+  }
+  if (!session.runId) {
+    elements.taskInput.value = session.title;
+    resizeComposer();
+    elements.taskInput.focus();
+    return;
+  }
+  try {
+    const data = await fetchJson(`/api/runs/${encodeURIComponent(session.runId)}`);
+    restoreRunSession(session, data);
+  } catch (error) {
+    showToast(`\u52a0\u8f7d\u4efb\u52a1\u5931\u8d25锛?{error.message}`);
+  }
+}
+
+function restoreRunSession(session, data) {
+  elements.messageList.innerHTML = "";
+  elements.emptyState.classList.add("hidden");
+  state.runId = session.runId;
+  state.assistantMessage = null;
+  state.assistantContent = "";
+  state.reasoningContent = "";
+  state.turns = 0;
+  state.tools = 0;
+  state.files = 0;
+  elements.threadTitle.textContent = session.title.length > 56 ? `${session.title.slice(0, 56)}...` : session.title;
+  elements.inspectorSession.textContent = session.runId.slice(0, 8);
+  appendMessage("user", session.title);
+  for (const event of data.events || []) {
+    const payload = event.payload || {};
+    if (event.type === "model_start") state.turns = Math.max(state.turns, payload.turn || 0);
+    if (event.type === "model_delta") {
+      state.assistantContent += payload.content || "";
+      state.reasoningContent += payload.reasoning || "";
+    }
+    if (event.type === "tool_start") {
+      state.tools += 1;
+      appendToolLog(payload.name, payload.input, null, null);
+    }
+    if (event.type === "tool_end") updateLastTool(payload.name, payload.ok, payload.result);
+    if (event.type === "run_complete" && !state.assistantContent) state.assistantContent = payload.content || "";
+  }
+  if (state.assistantContent || state.reasoningContent) {
+    ensureAssistantMessage();
+    renderAssistant();
+  }
+  updateStats();
+  setInspectorStatus(data.meta?.status || "\u5df2\u52a0\u8f7d", `${state.turns} \u8f6e 路 ${state.tools} \u4e2a\u5de5\u5177`, "ready");
+  renderSessions();
+}
+
+function formatSessionTime(value) {
+  if (!value) return "\u5386\u53f2";
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) ? "\u5386\u53f2" : date.toLocaleString();
 }
 
 function loadSessions() {
@@ -522,7 +635,7 @@ function initWorkspacePanel() {
       <button data-panel-action="mcp" type="button"><b>MCP</b><small id="panel-mcp-count">-</small></button>
       <button data-panel-action="runs" type="button"><b>\u4efb\u52a1</b><small id="panel-runs-count">-</small></button>
     </div>
-    <pre class="workspace-panel-output" id="workspace-panel-output">\u70b9\u51fb\u4e0a\u65b9\u5361\u7247\u67e5\u770b\u8be6\u60c5。</pre>`;
+    <pre class="workspace-panel-output" id="workspace-panel-output">\u70b9\u51fb\u4e0a\u65b9\u5361\u7247\u67e5\u770b\u8be6\u60c5銆?/pre>`;
   elements.inspector.querySelector(".drawer-body")?.prepend(panel);
   panel.querySelector("#workspace-panel-refresh")?.addEventListener("click", refreshWorkspacePanel);
   panel.querySelectorAll("[data-panel-action]").forEach((button) => {
@@ -555,9 +668,9 @@ async function refreshWorkspacePanel() {
     setText("#panel-plugins-count", plugins?.plugins ? `${plugins.plugins.length}` : "-");
     setText("#panel-mcp-count", mcp?.servers ? `${mcp.servers.length}` : "-");
     setText("#panel-runs-count", activeRuns?.runs ? `${activeRuns.runs.length}` : "-");
-    if (output && !output.dataset.locked) output.textContent = "\u9879\u76ee\u9762\u677f\u5df2\u5237\u65b0。\u70b9\u51fb\u5361\u7247\u67e5\u770b\u8be6\u7ec6 JSON。";
+    if (output && !output.dataset.locked) output.textContent = "项目面板已刷新。点击卡片查看详情。";
   } catch (error) {
-    if (output) output.textContent = `\u5237\u65b0\u5931\u8d25：${error.message}`;
+    if (output) output.textContent = `\u5237\u65b0\u5931\u8d25锛?{error.message}`;
   }
 }
 
@@ -580,7 +693,7 @@ async function showWorkspacePanelDetail(action) {
     const data = await fetchJson(urls[action]);
     output.textContent = formatJson(data);
   } catch (error) {
-    output.textContent = `\u52a0\u8f7d\u5931\u8d25：${error.message}`;
+    output.textContent = `\u52a0\u8f7d\u5931\u8d25锛?{error.message}`;
   }
 }
 
@@ -620,7 +733,7 @@ function initWorkspacePanelV2() {
       <button data-v2-action="mcp" type="button"><b>MCP</b><small id="panel-mcp-count">-</small></button>
       <button data-v2-action="runs" type="button"><b>\u4efb\u52a1</b><small id="panel-runs-count">-</small></button>
     </div>
-    <div class="workspace-panel-output" id="workspace-panel-output">\u70b9\u51fb\u5361\u7247\u67e5\u770b\u8be6\u60c5。</div>`;
+    <div class="workspace-panel-output" id="workspace-panel-output">\u70b9\u51fb\u5361\u7247\u67e5\u770b\u8be6\u60c5銆?/div>`;
   elements.inspector.querySelector(".drawer-body")?.prepend(panel);
   panel.querySelector("#workspace-panel-refresh")?.addEventListener("click", refreshWorkspacePanelV2);
   panel.querySelectorAll("[data-v2-action]").forEach((button) => {
@@ -672,7 +785,7 @@ async function showWorkspaceTool(action) {
     else if (action === "history") renderHistoryTool(output, data.runs || []);
     else output.innerHTML = `<pre>${escapeHtml(action === "git" ? (data.stdout || data.stderr || "No changes") : formatJson(data))}</pre>`;
   } catch (error) {
-    output.textContent = `\u52a0\u8f7d\u5931\u8d25：${error.message}`;
+    output.textContent = `\u52a0\u8f7d\u5931\u8d25锛?{error.message}`;
   }
 }
 
@@ -702,12 +815,12 @@ async function previewWorkspaceFile(workspace, filePath) {
 }
 
 function renderHistoryTool(output, runs) {
-  output.innerHTML = runs.length ? "" : "\u6682\u65e0\u5386\u53f2\u4efb\u52a1。";
+  output.innerHTML = runs.length ? "" : "暂无历史任务。";
   for (const run of runs) {
     const row = document.createElement("button");
     row.className = "history-row";
     row.type = "button";
-    row.innerHTML = `<strong>${escapeHtml(run.task || run.runId)}</strong><small>${escapeHtml(run.status || "unknown")} · ${escapeHtml(run.model || "")}</small>`;
+    row.innerHTML = `<strong>${escapeHtml(run.task || run.runId)}</strong><small>${escapeHtml(run.status || "unknown")} 路 ${escapeHtml(run.model || "")}</small>`;
     row.addEventListener("click", async () => {
       const detail = await fetchJson(`/api/runs/${encodeURIComponent(run.runId)}`);
       output.innerHTML = `<pre>${escapeHtml(formatJson(detail))}</pre>`;
@@ -717,7 +830,7 @@ function renderHistoryTool(output, runs) {
 }
 
 function renderTerminalTool(output, workspace) {
-  output.innerHTML = `<form class="terminal-form"><input name="command" placeholder="npm test" autocomplete="off"><button type="submit">Run</button></form><pre>\u8f93\u5165\u547d\u4ee4\u540e\u6267\u884c。</pre>`;
+  output.innerHTML = `<form class="terminal-form"><input name="command" placeholder="npm test" autocomplete="off"><button type="submit">Run</button></form><pre>\u8f93\u5165\u547d\u4ee4\u540e\u6267\u884c銆?/pre>`;
   output.querySelector("form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const command = new FormData(event.currentTarget).get("command")?.toString().trim();
@@ -728,7 +841,7 @@ function renderTerminalTool(output, workspace) {
       const data = await fetchJson("/api/terminal/run", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workspace, command }) });
       terminalOutput.textContent = `$ ${command}\n${data.stdout || ""}${data.stderr || ""}\n[exit ${data.exitCode}]`;
     } catch (error) {
-      terminalOutput.textContent = `\u6267\u884c\u5931\u8d25：${error.message}`;
+      terminalOutput.textContent = `\u6267\u884c\u5931\u8d25锛?{error.message}`;
     }
   });
 }
@@ -750,7 +863,7 @@ function initSettingsUi() {
   modal.innerHTML = `
     <form class="settings-card" id="settings-form">
       <div class="settings-card-header">
-        <div><strong>\u8bbe\u7f6e</strong><small>DeepSeek、\u6a21\u578b、\u5de5\u4f5c\u533a\u548c\u8fd0\u884c\u53c2\u6570</small></div>
+        <div><strong>\u8bbe\u7f6e</strong><small>DeepSeek銆乗u6a21\u578b銆乗u5de5\u4f5c\u533a\u548c\u8fd0\u884c\u53c2\u6570</small></div>
         <button class="icon-button" id="close-settings" type="button" aria-label="\u5173\u95ed\u8bbe\u7f6e">&times;</button>
       </div>
       <div class="settings-grid">
@@ -766,7 +879,7 @@ function initSettingsUi() {
         <label>Auto Reasoner<select name="autoReasoner"><option value="true">true</option><option value="false">false</option></select></label>
         <label>Host<input name="host" placeholder="127.0.0.1"></label>
         <label>Port<input name="port" placeholder="4317"></label>
-        <label class="wide">UI Token<input name="uiToken" type="password" placeholder="\u7559\u7a7a\u5219\u4e0d\u542f\u7528；\u586b\u5199\u540e /api/* \u9700\u8981 token"></label>
+        <label class="wide">UI Token<input name="uiToken" type="password" placeholder="\u7559\u7a7a\u5219\u4e0d\u542f\u7528锛沑u586b\u5199\u540e /api/* \u9700\u8981 token"></label>
       </div>
       <div class="settings-status" id="settings-status"></div>
       <div class="settings-actions">
@@ -778,6 +891,109 @@ function initSettingsUi() {
   document.querySelector("#close-settings")?.addEventListener("click", closeSettingsModal);
   document.querySelector("#reload-settings")?.addEventListener("click", loadSettingsForm);
   document.querySelector("#settings-form")?.addEventListener("submit", saveSettingsForm);
+}
+
+function initOnboardingUi() {
+  if (document.querySelector("#feature-list-button")) return;
+  const button = document.createElement("button");
+  button.className = "settings-button feature-list-button";
+  button.id = "feature-list-button";
+  button.type = "button";
+  button.innerHTML = '<span aria-hidden="true">&#9776;</span><span>\u529f\u80fd\u5217\u8868</span>';
+  document.querySelector(".sidebar-footer")?.prepend(button);
+  button.addEventListener("click", () => openGuideModal(false));
+
+  if (localStorage.getItem("agent-onboarding-complete") !== "true") {
+    setTimeout(() => openGuideModal(true), 120);
+  }
+}
+
+function openGuideModal(firstRun) {
+  let modal = document.querySelector("#guide-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.className = "guide-modal";
+    modal.id = "guide-modal";
+    modal.innerHTML = `
+      <section class="guide-card" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+        <div class="guide-header">
+          <div><span class="guide-kicker">APP AGENT</span><h2 id="guide-title">\u5f00\u59cb\u4f7f\u7528</h2><p id="guide-subtitle"></p></div>
+          <button class="icon-button" id="close-guide" type="button" aria-label="\u5173\u95ed\u5f15\u5bfc">&times;</button>
+        </div>
+        <div class="guide-steps" id="guide-steps"></div>
+        <div class="guide-content" id="guide-content"></div>
+        <div class="guide-actions"><button class="modal-button secondary" id="guide-back" type="button">\u4e0a\u4e00\u6b65</button><button class="modal-button primary" id="guide-next" type="button">\u4e0b\u4e00\u6b65</button></div>
+      </section>`;
+    document.body.appendChild(modal);
+    document.querySelector("#close-guide")?.addEventListener("click", () => closeGuideModal(true));
+    document.querySelector("#guide-back")?.addEventListener("click", () => changeGuideStep(-1));
+  }
+  modal.dataset.firstRun = firstRun ? "true" : "false";
+  modal.classList.remove("hidden");
+  modal.dataset.step = firstRun ? "0" : "2";
+  renderGuideStep();
+}
+
+function closeGuideModal(markComplete) {
+  if (markComplete) localStorage.setItem("agent-onboarding-complete", "true");
+  document.querySelector("#guide-modal")?.classList.add("hidden");
+}
+
+function normalizeModelSelector() {
+  const select = elements.model;
+  if (!select) return;
+  const options = [
+    ["auto", "自动选择（DeepSeek）"],
+    ["deepseek-chat", "deepseek-chat"],
+    ["deepseek-reasoner", "deepseek-reasoner"],
+  ];
+  for (const [value, label] of options) {
+    if (![...select.options].some((option) => option.value === value)) {
+      select.add(new Option(label, value));
+    }
+  }
+  if (!select.dataset.userSelected) select.value = "auto";
+}
+
+function changeGuideStep(delta) {
+  const modal = document.querySelector("#guide-modal");
+  if (!modal) return;
+  const current = Number(modal.dataset.step || 0);
+  const next = Math.min(2, Math.max(0, current + delta));
+  modal.dataset.step = String(next);
+  renderGuideStep();
+}
+
+function renderGuideStep() {
+  const modal = document.querySelector("#guide-modal");
+  if (!modal) return;
+  const step = Number(modal.dataset.step || 0);
+  const firstRun = modal.dataset.firstRun === "true";
+  const steps = ["\u5de5\u4f5c\u533a", "\u4efb\u52a1\u6a21\u5f0f", "\u529f\u80fd\u603b\u89c8"];
+  const content = [
+    `<h3>\u5148\u8bbe\u7f6e\u5de5\u4f5c\u533a</h3><p>\u5728\u5e95\u90e8\u8f93\u5165\u9879\u76ee\u8def\u5f84\uff0cAgent \u5c06\u5728\u8fd9\u4e2a\u5de5\u4f5c\u533a\u5185\u8bfb\u53d6\u6587\u4ef6\u3001\u4fee\u6539\u4ee3\u7801\u548c\u8fd0\u884c\u5de5\u5177\u3002</p><div class="guide-callout">\u5f53\u524d\u5de5\u4f5c\u533a锛?code>${escapeHtml(elements.workspace.value || "\u672a\u9009\u62e9")}</code></div>`,
+    `<h3>\u9009\u62e9\u6743\u9650\u6a21\u5f0f</h3><div class="guide-mode-list"><div><b>ASK</b><span>\u5199\u5165\u548c\u547d\u4ee4\u6267\u884c\u524d\u8bf7\u6c42\u786e\u8ba4</span></div><div><b>AUTO</b><span>\u81ea\u52a8\u6267\u884c\u5de5\u5177</span></div><div><b>READ</b><span>\u53ea\u8bfb\u53d6\u548c\u67e5\u770b\u5dee\u5f02</span></div></div>`,
+    `<h3>\u4f60\u53ef\u4ee5\u505a\u4ec0\u4e48</h3><div class="feature-list">${featureItems().map((item) => `<div class="feature-item"><span class="feature-check">${item.done ? "&#10003;" : ""}</span><div><b>${item.name}</b><small>${item.description}</small></div></div>`).join("")}</div>`,
+  ];
+  document.querySelector("#guide-title").textContent = firstRun ? "\u5f00\u59cb\u4f7f\u7528" : "\u529f\u80fd\u5217\u8868";
+  document.querySelector("#guide-subtitle").textContent = firstRun ? "\u4e09\u6b65\u4e86\u89e3\u672c\u5730\u4ee3\u7806 Agent" : "\u5f53\u524d\u5de5\u4f5c\u53f0\u652f\u6301\u7684\u80fd\u529b";
+  document.querySelector("#guide-steps").innerHTML = steps.map((name, index) => `<span class="${index === step ? "active" : index < step ? "done" : ""}">${index + 1} ${name}</span>`).join("");
+  document.querySelector("#guide-content").innerHTML = content[step];
+  document.querySelector("#guide-back").disabled = step === 0;
+  document.querySelector("#guide-next").textContent = step === 2 ? "\u5b8c\u6210" : "\u4e0b\u4e00\u6b65";
+  document.querySelector("#guide-next").onclick = () => step === 2 ? closeGuideModal(true) : changeGuideStep(1);
+}
+
+function featureItems() {
+  return [
+    { name: "\u5bf9\u8bdd Agent", description: "\u6d41\u5f0f\u56de\u590d\u3001\u63a8\u7406\u5185\u5bb9\u548c\u591a\u8f6e\u4efb\u52a1", done: true },
+    { name: "\u6587\u4ef6\u5de5\u5177", description: "\u6587\u4ef6\u6811\u3001\u6587\u4ef6\u9884\u89c8\u3001\u641c\u7d22\u548c\u4fee\u6539", done: true },
+    { name: "Git \u5de5\u4f5c\u6d41", description: "\u72b6\u6001\u3001Diff\u3001Worktree \u548c\u5386\u53f2\u4efb\u52a1", done: true },
+    { name: "Terminal", description: "\u5728\u5f53\u524d\u5de5\u4f5c\u533a\u6267\u884c\u547d\u4ee4\u5e76\u67e5\u770b\u7ed3\u679c", done: true },
+    { name: "DeepSeek \u6a21\u578b", description: "Chat/Reasoner \u8def\u7531\u3001\u4e0a\u4e0b\u6587\u538b\u7f29\u548c\u5de5\u5177\u8c03\u7528", done: true },
+    { name: "Skills / MCP / Plugins", description: "\u626b\u63cf\u3001\u914d\u7f6e\u548c\u53ef\u6269\u5c55\u80fd\u529b", done: true },
+    { name: "\u8bbe\u7f6e\u4e2d\u5fc3", description: "\u6a21\u578b\u3001API\u3001\u5de5\u4f5c\u533a\u3001\u9650\u5236\u548c Token", done: true },
+  ];
 }
 
 async function openSettingsModal() {
@@ -800,9 +1016,9 @@ async function loadSettingsForm() {
     }
     if (form?.elements.namedItem("apiKey")) form.elements.namedItem("apiKey").value = "";
     if (form?.elements.namedItem("uiToken")) form.elements.namedItem("uiToken").value = "";
-    if (status) status.textContent = `\u5df2\u8bfb\u53d6\u914d\u7f6e：API Key ${settings.apiKeySet ? "\u5df2\u8bbe\u7f6e" : "\u672a\u8bbe\u7f6e"}，UI Token ${settings.uiTokenSet ? "\u5df2\u8bbe\u7f6e" : "\u672a\u8bbe\u7f6e"}`;
+    if (status) status.textContent = `\u5df2\u8bfb\u53d6\u914d\u7f6e锛欰PI Key ${settings.apiKeySet ? "\u5df2\u8bbe\u7f6e" : "\u672a\u8bbe\u7f6e"}锛孶I Token ${settings.uiTokenSet ? "\u5df2\u8bbe\u7f6e" : "\u672a\u8bbe\u7f6e"}`;
   } catch (error) {
-    if (status) status.textContent = `\u8bfb\u53d6\u5931\u8d25：${error.message}`;
+    if (status) status.textContent = `\u8bfb\u53d6\u5931\u8d25锛?{error.message}`;
   }
 }
 
@@ -817,11 +1033,12 @@ async function saveSettingsForm(event) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (status) status.textContent = "\u5df2\u4fdd\u5b58\u5230 .env；\u90e8\u5206\u76d1\u542c\u5730\u5740\u548c\u7aef\u53e3\u4fee\u6539\u9700\u8981\u91cd\u542f\u670d\u52a1\u751f\u6548。";
+    if (status) status.textContent = "已保存到 .env；部分监听地址和端口修改需要重启服务生效。";
     elements.model.value = settings.chatModel || elements.model.value;
     await refreshConfig();
     await refreshWorkspacePanel();
   } catch (error) {
-    if (status) status.textContent = `\u4fdd\u5b58\u5931\u8d25：${error.message}`;
+    if (status) status.textContent = `\u4fdd\u5b58\u5931\u8d25锛?{error.message}`;
   }
 }
+

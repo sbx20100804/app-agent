@@ -12,22 +12,28 @@
       <aside class="sidebar" aria-label="任务导航">
         <div class="sidebar-titlebar">
           <div class="app-symbol" aria-hidden="true"><span></span><span></span></div>
-          <strong>DeepSeek Codex</strong>
+          <strong>Codex</strong>
+          <span class="brand-chevron">⌄</span>
           <button class="icon-button mobile-only" id="close-sidebar" type="button" title="关闭侧栏" aria-label="关闭侧栏">×</button>
         </div>
 
         <button class="new-task-button" id="new-task" type="button">
           <span class="new-task-icon">＋</span>
-          <span>新任务</span>
+          <span>新对话</span>
           <kbd>Ctrl K</kbd>
         </button>
 
         <nav class="primary-nav" aria-label="主导航">
-          <button class="nav-item active" type="button"><span class="nav-icon">⌁</span><span>任务</span></button>
-          <button class="nav-item" id="choose-workspace" type="button"><span class="nav-icon">⌂</span><span>工作区</span></button>
+          <button class="nav-item" type="button"><span class="nav-icon">⌁</span><span>拉取请求</span></button>
+          <button class="nav-item" type="button"><span class="nav-icon">◷</span><span>已安排</span></button>
+          <button class="nav-item" type="button"><span class="nav-icon">@</span><span>插件</span></button>
         </nav>
 
         <div class="sidebar-divider"></div>
+        <div class="project-section">
+          <div class="section-label">项目</div>
+          <button class="project-item" id="choose-workspace" type="button"><span class="nav-icon">⌂</span><span id="project-name">鼠标驱动</span></button>
+        </div>
         <div class="task-section">
           <div class="task-section-header">
             <span>最近</span>
