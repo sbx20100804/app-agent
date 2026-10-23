@@ -87,7 +87,7 @@ export class Agent {
         const input = parseToolArguments(call.function?.arguments);
         const toolResult = input.error
           ? { ok: false, error: input.error }
-          : await this.tools.execute(call.function.name, input.value);
+          : await this.tools.execute(call.function.name, input.value, { signal: options.signal });
         messages.push({
           role: "tool",
           tool_call_id: call.id,
