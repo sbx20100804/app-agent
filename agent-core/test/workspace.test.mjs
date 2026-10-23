@@ -29,7 +29,8 @@ test("工作区支持读取、搜索、补丁和受限命令", async () => {
   assert.deepEqual(await workspace.applyPatch(patch), { changed: ["src/sample.txt"] });
   assert.equal((await workspace.readFile("src/sample.txt")).content, "hello\nagent\n");
 
-  const command = await workspace.execCommand("Write-Output runtime-ok");
+  const probeCommand = process.platform === "win32" ? "Write-Output runtime-ok" : "echo runtime-ok";
+  const command = await workspace.execCommand(probeCommand);
   assert.equal(command.exitCode, 0);
   assert.match(command.stdout, /runtime-ok/);
 });
