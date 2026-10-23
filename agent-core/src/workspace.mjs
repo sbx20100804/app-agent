@@ -179,6 +179,8 @@ export class Workspace {
           maxBuffer: this.maxOutputBytes,
           windowsHide: true,
           encoding: "utf8",
+          env: scrubSensitiveEnv(process.env),
+          signal: options.signal,
         },
       );
       return {
@@ -193,7 +195,10 @@ export class Workspace {
         command,
         exitCode: typeof error.code === "number" ? error.code : 1,
         stdout: truncate(error.stdout ?? "", this.maxOutputBytes),
-        stderr: truncate(error.stderr ?? error.message ?? "", this.maxOutputBytes),
+        stderr: truncate(
+          error.stderr || (error.name === "AbortError" ? "命令已被中止" : error.message) || "",
+          this.maxOutputBytes,
+        ),
         timedOut: error.killed === true || error.signal === "SIGTERM",
       };
     }
@@ -377,6 +382,16 @@ async function nearestExistingParent(candidate) {
       current = parent;
     }
   }
+}
+
+const SENSITIVE_ENV_PATTERN = /(^|_)(API_KEY|TOKEN|SECRET|PASSWORD|CREDENTIALS?)(_|$)/i;
+
+function scrubSensitiveEnv(env) {
+  const result = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (!SENSITIVE_ENV_PATTERN.test(key)) result[key] = value;
+  }
+  return result;
 }
 
 function truncate(value, limit) {
