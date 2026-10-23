@@ -1,5 +1,7 @@
 # App Agent
 
+[English](README.en.md) | **简体中文**
+
 一个专门为 DeepSeek 优化的本地编程智能体，提供接近 Codex 的任务界面、工具调用、权限审批、Git 集成和可扩展能力。
 
 ## 主要功能
@@ -39,7 +41,7 @@ Copy-Item .env.example .env
 ```env
 TARGET_PROVIDER=deepseek
 TARGET_BASE_URL=https://api.deepseek.com
-TARGET_API_KEY=YOUR_API_KEY
+TARGET_API_KEY=<your-deepseek-api-key>
 TARGET_CHAT_MODEL=deepseek-chat
 TARGET_REASONER_MODEL=deepseek-reasoner
 ```
@@ -79,3 +81,7 @@ npm run check
 ## 当前状态
 
 项目处于持续开发阶段。核心 Agent、DeepSeek 接入和桌面工作台已经可运行，MCP 实际连接、流式终端和完整 Worktree 合并流程仍在完善。
+
+## 许可证
+
+本项目基于 [MIT 许可证](LICENSE) 开源。
