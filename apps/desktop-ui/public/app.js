@@ -133,7 +133,7 @@ async function refreshConfig() {
     elements.connectionDot.className = `connection-dot ${config.configured ? "ready" : "error"}`;
     elements.modelDot.className = `model-dot ${config.configured ? "ready" : "error"}`;
     elements.connectionLabel.textContent = config.configured ? "已连接" : "未配置";
-    elements.connectionModel.textContent = config.model || "鐩爣妯″瀷";
+    elements.connectionModel.textContent = config.model || "目标模型";
     if (config.model && config.model !== "未配置") {
       const existing = [...elements.model.options].some((option) => option.value === config.model);
       if (!existing) elements.model.add(new Option(config.model, config.model));
@@ -267,7 +267,7 @@ function processEvent(message) {
     updateStats();
     appendToolLog(data.name, data.input, null, null);
     elements.runStatus.textContent = `正在执行 · ${data.name}`;
-    addActivity(`鎵ц ${data.name}`, formatShort(data.input));
+    addActivity(`执行 ${data.name}`, formatShort(data.input));
   } else if (event === "tool_end") {
     updateLastTool(data.name, data.ok, data.result);
     if (data.result?.result?.changed) state.files += data.result.result.changed.length;
