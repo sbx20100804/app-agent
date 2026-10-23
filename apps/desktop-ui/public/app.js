@@ -189,7 +189,7 @@ async function startRun() {
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: response.statusText }));
-      throw new Error(error.error || "鍚姩杩愯澶辫触");
+      throw new Error(error.error || "启动运行失败");
     }
     await consumeEvents(response.body);
   } catch (error) {
