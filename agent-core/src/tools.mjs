@@ -95,7 +95,7 @@ export class ToolRegistry {
     this.onEvent = onEvent;
   }
 
-  async execute(name, input = {}) {
+  async execute(name, input = {}, options = {}) {
     const definition = TOOL_DEFINITIONS.find((tool) => tool.function.name === name);
     if (!definition) {
       return toolError(`未知工具: ${name}`, "UNKNOWN_TOOL");
@@ -104,7 +104,7 @@ export class ToolRegistry {
     this.onEvent({ type: "tool_start", name, input });
     try {
       await this.permissions.require(name, input);
-      const result = await this.#dispatch(name, input);
+      const result = await this.#dispatch(name, input, options);
       this.onEvent({ type: "tool_end", name, ok: true, result });
       return { ok: true, result };
     } catch (error) {
@@ -114,7 +114,7 @@ export class ToolRegistry {
     }
   }
 
-  async #dispatch(name, input) {
+  async #dispatch(name, input, options = {}) {
     switch (name) {
       case "list_files":
         return this.workspace.listFiles({ maxEntries: input.max_entries });
@@ -128,7 +128,10 @@ export class ToolRegistry {
       case "apply_patch":
         return this.workspace.applyPatch(input.patch);
       case "exec_command":
-        return this.workspace.execCommand(input.command, { timeoutMs: input.timeout_ms });
+        return this.workspace.execCommand(input.command, {
+          timeoutMs: input.timeout_ms,
+          signal: options.signal,
+        });
       case "git_status":
         return this.workspace.git(["status", "--short"]);
       case "git_diff":
@@ -141,9 +144,12 @@ export class ToolRegistry {
 
 export function serializeToolResult(result, maxCharacters = 20_000) {
   const serialized = JSON.stringify(result);
-  return serialized.length > maxCharacters
-    ? `${serialized.slice(0, maxCharacters)}\n{"truncated":true}`
-    : serialized;
+  if (serialized.length <= maxCharacters) return serialized;
+  return JSON.stringify({
+    truncated: true,
+    originalCharacters: serialized.length,
+    preview: serialized.slice(0, Math.max(0, maxCharacters - 128)),
+  });
 }
 
 function toolError(message, code) {
